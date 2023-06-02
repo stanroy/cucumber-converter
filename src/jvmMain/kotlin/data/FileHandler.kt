@@ -9,7 +9,7 @@ abstract class FileChooserWrapper {
     protected val fileChooser: JFileChooser = JFileChooser()
     abstract fun showOpenDialog(): Int
     abstract fun getSelectedFile(): File
-    abstract fun fileSelectionMode()
+    abstract fun fileSelectionMode(fileSelectionMode: Int)
 }
 
 class JFileChooserWrapper : FileChooserWrapper() {
@@ -21,7 +21,7 @@ class JFileChooserWrapper : FileChooserWrapper() {
         return fileChooser.selectedFile
     }
 
-    override fun fileSelectionMode() {
+    override fun fileSelectionMode(fileSelectionMode: Int) {
         fileChooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
     }
 
@@ -29,16 +29,44 @@ class JFileChooserWrapper : FileChooserWrapper() {
 
 class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
 
-    fun getScenariosDirectoryPath(): String? {
+    fun openFileDialogAndValidateScenarioPath(): String? {
         val fileChooser = fileChooserWrapper
         // open file chooser dialog
         val returnValue = fileChooserWrapper.showOpenDialog()
 
         // check selected option
+
+
         return if (returnValue == JFileChooser.APPROVE_OPTION) {
-            val selectedFolder = fileChooser.getSelectedFile()
-            selectedFolder.absolutePath
+            checkSelectedFolderPath(fileChooser.getSelectedFile())
         } else null
+    }
+
+    private fun checkSelectedFolderPath(selectedFolder: File): String? {
+        val selectedFolderPath = selectedFolder.takeIf { it.isDirectory }?.absolutePath
+
+        if (selectedFolderPath != null && containsFeatureFile(selectedFolder)) {
+            return selectedFolderPath
+        }
+
+        return null
+    }
+
+    private fun containsFeatureFile(directory: File): Boolean {
+        val files = directory.listFiles()
+
+        if (files != null) {
+            for (file in files) {
+                if (file.isDirectory) {
+                    if (containsFeatureFile(file)) {
+                        return true
+                    }
+                } else if (file.name.endsWith(".feature")) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     fun readScenarios(scenariosPath: String): MutableMap<String, File> {
