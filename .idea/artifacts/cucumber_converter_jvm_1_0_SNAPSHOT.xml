@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="cucumber-converter-jvm-1.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/build/libs</output-path>
+    <root id="archive" name="cucumber-converter-jvm-1.0-SNAPSHOT.jar">
+      <element id="module-output" name="cucumber-converter.jvmMain" />
+    </root>
+  </artifact>
+</component>
