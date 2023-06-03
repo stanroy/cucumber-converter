@@ -60,7 +60,7 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
         return false
     }
 
-    private fun readScenarios(scenariosPath: String): MutableMap<String, List<File>> {
+    fun readScenarios(scenariosPath: String): MutableMap<String, List<File>> {
         val scenariosMainDirectory = File(scenariosPath)
 
         val scenariosMap = mutableMapOf<String, List<File>>()
@@ -79,7 +79,7 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
         return scenariosMap
     }
 
-    private fun readFile(file: File): String? {
+    fun readFile(file: File): String? {
         return try {
             file.readText()
         } catch (e: Exception) {
@@ -91,7 +91,7 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
     fun processScenarios(
         scenariosPath: String,
         onScenariosFound: () -> Unit,
-        onEachScenarioProcessed: (subFolder: String, fileContents: String) -> Unit,
+        onEachScenarioProcessed: (ScenarioFile) -> Unit,
         onEmptyScenarios: () -> Unit,
         onScenarioReadingFailure: (scenarioName: String) -> Unit
     ) {
@@ -102,7 +102,11 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
                 fileList.forEach { file ->
                     val fileContents = readFile(file)
                     if (fileContents != null) {
-                        onEachScenarioProcessed(subFolder, fileContents)
+                        onEachScenarioProcessed(
+                            ScenarioFile(
+                                subFolder, file.name.substringBeforeLast('.'), fileContents
+                            )
+                        )
                     } else {
                         onScenarioReadingFailure(file.name)
                     }
@@ -113,3 +117,5 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
         }
     }
 }
+
+data class ScenarioFile(val subFolder: String, val fileName: String, val fileContents: String)

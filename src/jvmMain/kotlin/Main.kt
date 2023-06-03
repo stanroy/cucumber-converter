@@ -93,22 +93,10 @@ fun App() {
                     fileHandler.processScenarios(
                         scenariosPath = pathInputState,
                         onScenariosFound = { scenariosGenerated = true },
-                        onEachScenarioProcessed = { subFolder, fileContents ->
-
+                        onEachScenarioProcessed = { scenarioFile ->
                             val generator = Generator()
-                            val scenarioMap = generator.splitScenarios(fileContents)
 
-
-                            scenarioMap.forEach { (scenario, stepMap) ->
-                                println(scenario)
-                                stepMap.forEach { (step, dataTable) ->
-                                    println("Step: $step")
-                                    dataTable.forEach { row ->
-                                        println(row)
-                                    }
-                                }
-                                println()
-                            }
+                            generator.createSwiftFunctions(scenarioFile)
 
                         },
                         onEmptyScenarios = {
