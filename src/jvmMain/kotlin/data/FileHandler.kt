@@ -1,8 +1,6 @@
 package data
 
-import java.io.BufferedReader
 import java.io.File
-import java.io.FileReader
 import javax.swing.JFileChooser
 
 abstract class FileChooserWrapper {
@@ -62,7 +60,7 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
         return false
     }
 
-    fun readScenarios(scenariosPath: String): MutableMap<String, List<File>> {
+    private fun readScenarios(scenariosPath: String): MutableMap<String, List<File>> {
         val scenariosMainDirectory = File(scenariosPath)
 
         val scenariosMap = mutableMapOf<String, List<File>>()
@@ -81,12 +79,37 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
         return scenariosMap
     }
 
-    fun readFile(file: File): String? {
+    private fun readFile(file: File): String? {
         return try {
             file.readText()
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    fun processScenarios(
+        scenariosPath: String,
+        onScenariosFound: () -> Unit,
+        onEachScenarioProcessed: (subFolder: String, fileContents: String) -> Unit,
+        onEmptyScenarios: () -> Unit,
+        onScenarioReadingFailure: (scenarioName: String) -> Unit
+    ) {
+        val scenariosFound = readScenarios(scenariosPath)
+        if (scenariosFound.isNotEmpty()) {
+            onScenariosFound()
+            scenariosFound.forEach { (subFolder, fileList) ->
+                fileList.forEach { file ->
+                    val fileContents = readFile(file)
+                    if (fileContents != null) {
+                        onEachScenarioProcessed(subFolder, fileContents)
+                    } else {
+                        onScenarioReadingFailure(file.name)
+                    }
+                }
+            }
+        } else {
+            onEmptyScenarios()
         }
     }
 }
