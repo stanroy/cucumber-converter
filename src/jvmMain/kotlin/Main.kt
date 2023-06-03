@@ -66,9 +66,11 @@ fun App() {
                     onGenerateClick = {
                         val scenariosFound = fileHandler.readScenarios(pathInputState)
                         if (scenariosFound.isNotEmpty()) {
-                            scenariosFound.forEach { (subFolder, file) ->
+                            scenariosFound.forEach { (subFolder, fileList) ->
                                 println(subFolder)
-                                fileHandler.readFile(file)
+                                fileList.forEach { file ->
+                                    fileHandler.readFile(file)
+                                }
                             }
                         }
                     }

@@ -43,69 +43,50 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
     }
 
     private fun checkSelectedFolderPath(selectedFolder: File): String? {
-        val selectedFolderPath = selectedFolder.takeIf { it.isDirectory }?.absolutePath
-
-        if (selectedFolderPath != null && containsFeatureFile(selectedFolder)) {
-            return selectedFolderPath
-        }
-
-        return null
+        return selectedFolder.takeIf { it.isDirectory && containsFeatureFile(it) }?.absolutePath
     }
 
     private fun containsFeatureFile(directory: File): Boolean {
-        val files = directory.listFiles()
+        val files = directory.listFiles() ?: return false
 
-        if (files != null) {
-            for (file in files) {
-                if (file.isDirectory) {
-                    if (containsFeatureFile(file)) {
-                        return true
-                    }
-                } else if (file.name.endsWith(".feature")) {
-                    return true
-                }
+        if (files.any { it.name.endsWith(".feature") }) {
+            return true
+        }
+
+        for (file in files) {
+            if (file.isDirectory && containsFeatureFile(file)) {
+                return true
             }
         }
+
         return false
     }
 
-    fun readScenarios(scenariosPath: String): MutableMap<String, File> {
-        val subFolders = mutableListOf<File>()
+    fun readScenarios(scenariosPath: String): MutableMap<String, List<File>> {
         val scenariosMainDirectory = File(scenariosPath)
-        // get subfolders from main scenarios folder and add it to MutableList
-        if (scenariosMainDirectory.exists() && scenariosMainDirectory.isDirectory) {
-            subFolders.addAll(scenariosMainDirectory.listFiles { file -> file.isDirectory }.orEmpty())
-        }
-        val scenariosMap = mutableMapOf<String, File>()
-        for (folder in subFolders) {
-            val files = folder.listFiles { file ->
-                file.isFile
-            }.orEmpty()
 
-            if (files.isNotEmpty()) {
-                scenariosMap[folder.name] = files[0]
+        val scenariosMap = mutableMapOf<String, List<File>>()
+        if (scenariosMainDirectory.exists() && scenariosMainDirectory.isDirectory) {
+            scenariosMainDirectory.listFiles { file -> file.isDirectory }?.forEach { folder ->
+                val files = folder.listFiles { file ->
+                    file.isFile && file.name.endsWith(".feature")
+                }.orEmpty()
+
+                if (files.isNotEmpty()) {
+                    scenariosMap[folder.name] = files.toList()
+                }
             }
         }
 
         return scenariosMap
-
-
     }
 
-    fun readFile(file: File) {
-        try {
-            val fileReader = FileReader(file.absoluteFile)
-            val bufferedReader = BufferedReader(fileReader)
-            var line: String?
-            val stringBuilder = StringBuilder()
-
-            while (bufferedReader.readLine().also { line = it } != null) {
-                stringBuilder.append(line).append("\n")
-            }
-            bufferedReader.close()
-            println(stringBuilder.toString())
+    fun readFile(file: File): String? {
+        return try {
+            file.readText()
         } catch (e: Exception) {
-            println(e.printStackTrace())
+            e.printStackTrace()
+            null
         }
     }
 }
