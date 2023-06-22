@@ -33,10 +33,18 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
         val returnValue = fileChooserWrapper.showOpenDialog()
 
         // check selected option
-
-
         return if (returnValue == JFileChooser.APPROVE_OPTION) {
             checkSelectedFolderPath(fileChooser.getSelectedFile())
+        } else null
+    }
+
+    fun openFileDialog(): String? {
+        val fileChooser = fileChooserWrapper
+        // open file chooser dialog
+        val returnValue = fileChooserWrapper.showOpenDialog()
+
+        return if (returnValue == JFileChooser.APPROVE_OPTION) {
+            fileChooser.getSelectedFile().absolutePath
         } else null
     }
 

@@ -4,6 +4,7 @@ object Dictionary {
     const val windowTitle = "Cucumber Converter"
     const val generateScenarios = "Generate"
     const val chooseScenariosLabel = "Click to choose main scenarios directory"
+    const val chooseFolderToGenerateIn = "Click to choose the folder to generate test files in"
     const val chooseDirectoryCd = "Choose directory"
     const val chooseValidDirectory = "Choose valid directory"
     const val noScenariosFound = "No scenarios found, choose main scenario directory"
