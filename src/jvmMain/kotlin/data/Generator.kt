@@ -9,14 +9,7 @@ import java.time.format.FormatStyle
 
 class Generator {
 
-    private fun version(): String? {
-        val buildGradle = File("build.gradle.kts")
-
-        val regex = Regex("""version\s*=\s*["'](.+?)["']""")
-        val matchResult = regex.find(buildGradle.readText())
-
-        return matchResult?.groupValues?.getOrNull(1)
-    }
+    private fun version(): String = System.getProperty("jpackage.app-version").orEmpty()
 
     private fun timeStamp(): String? {
         val now = LocalDateTime.now()
