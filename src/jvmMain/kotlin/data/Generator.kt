@@ -128,7 +128,7 @@ class Generator {
                 appendLine("//  Generated on: ${timeStamp()}")
                 appendLine("//")
                 appendLine()
-                appendLine("import XCTEST")
+                appendLine("import XCTest")
                 appendLine()
                 appendLine("class ${scenarioFile.fileName.capitalizeIt()}: XCTestCase {")
                 appendLine("    let app = XCUIApplication()")
@@ -198,17 +198,14 @@ class Generator {
         // step function creation
         val stepName = stepInitialFormatting.replace(regex, "").replace("_+".toRegex(), "_").dropLastWhile { it == '_' }
         val stepFunctionSignature = when {
-            parametersSection.isNotEmpty() && dataTableSection.isNotEmpty() -> "try $stepName($parametersSection, $dataTableSection) {"
-            parametersSection.isNotEmpty() -> "try $stepName($parametersSection) {"
-            dataTableSection.isNotEmpty() -> "try $stepName($dataTableSection) {"
-            else -> "try $stepName() {"
+            parametersSection.isNotEmpty() && dataTableSection.isNotEmpty() -> "try $stepName($parametersSection, $dataTableSection)"
+            parametersSection.isNotEmpty() -> "try $stepName($parametersSection)"
+            dataTableSection.isNotEmpty() -> "try $stepName($dataTableSection)"
+            else -> "try $stepName()"
         }
 
-        stepFunctionBuilder.apply {
-            appendLine("        $stepFunctionSignature")
-            appendLine()
-            appendLine("        }")
-        }
+        stepFunctionBuilder.appendLine("        $stepFunctionSignature")
+
 
         return stepFunctionBuilder.toString()
     }
