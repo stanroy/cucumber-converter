@@ -96,31 +96,92 @@ class FileHandler(private val fileChooserWrapper: FileChooserWrapper) {
         }
     }
 
+    //    fun processScenarios(
+//        scenariosPath: String,
+//        onScenariosFound: () -> Unit,
+//        onEachScenarioProcessed: (ScenarioFile) -> Unit,
+//        onEmptyScenarios: () -> Unit,
+//        onScenarioReadingFailure: (scenarioName: String) -> Unit
+//    ) {
+//        val scenariosFound = readScenarios(scenariosPath)
+//        if (scenariosFound.isNotEmpty()) {
+//            onScenariosFound()
+//            scenariosFound.forEach { (subFolder, fileList) ->
+//                fileList.forEach { file ->
+//                    val fileContents = readFile(file)
+//                    if (fileContents != null) {
+//                        onEachScenarioProcessed(
+//                            ScenarioFile(
+//                                subFolder, file.name.substringBeforeLast('.'), fileContents
+//                            )
+//                        )
+//                    } else {
+//                        onScenarioReadingFailure(file.name)
+//                    }
+//                }
+//            }
+//        } else {
+//            onEmptyScenarios()
+//        }
+//    }
     fun processScenarios(
         scenariosPath: String,
         onScenariosFound: () -> Unit,
         onEachScenarioProcessed: (ScenarioFile) -> Unit,
         onEmptyScenarios: () -> Unit,
-        onScenarioReadingFailure: (scenarioName: String) -> Unit
+        onScenarioReadingFailure: (scenarioName: String) -> Unit,
+        onLastScenarioProcessed: () -> Unit // New lambda parameter
     ) {
+        // Read the scenarios from the specified path
         val scenariosFound = readScenarios(scenariosPath)
+
         if (scenariosFound.isNotEmpty()) {
+            // Invoke when scenarios are found
             onScenariosFound()
+
+            // Calculate the total number of scenarios
+            val totalScenarioCount = scenariosFound.flatMap { it.value }.size
+
+            // Counter for processed scenarios
+            var processedScenarioCount = 0
+
+            // Counter for processed files
+            var processedFileCount = 0
+
+            // Iterate over each subfolder and its associated file list
             scenariosFound.forEach { (subFolder, fileList) ->
+                // Iterate over each file in the file list
                 fileList.forEach { file ->
+                    // Read the contents of the current file
                     val fileContents = readFile(file)
+
                     if (fileContents != null) {
+                        // Invoke for each processed scenario
                         onEachScenarioProcessed(
                             ScenarioFile(
                                 subFolder, file.name.substringBeforeLast('.'), fileContents
                             )
                         )
+
+                        // Increment the counter for processed scenarios
+                        processedScenarioCount++
+
+                        // Check if all scenarios from the last file are processed
+                        if (processedScenarioCount == totalScenarioCount && processedFileCount == scenariosFound.size - 1) {
+                            // Invoke when the last scenario from the last file is processed
+                            onLastScenarioProcessed()
+                        }
                     } else {
+                        // Invoke when there's a failure in reading the scenario file
                         onScenarioReadingFailure(file.name)
                     }
                 }
+
+                // Increment the counter for processed files
+                processedFileCount++
             }
         } else {
+            // Invoke when no scenarios are found
             onEmptyScenarios()
         }
     }

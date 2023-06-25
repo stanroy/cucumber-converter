@@ -9,7 +9,20 @@ import java.time.format.FormatStyle
 
 class Generator {
 
-    private fun version(): String = System.getProperty("jpackage.app-version").orEmpty()
+    private fun version(): String {
+        val version = System.getProperty("jpackage.app-version")
+
+        return if (version.isNullOrEmpty()) {
+            val buildGradle = File("build.gradle.kts")
+
+            val regex = Regex("""version\s*=\s*["'](.+?)["']""")
+            val matchResult = regex.find(buildGradle.readText())
+
+            "DEBUG ${matchResult?.groupValues?.getOrNull(1)}"
+        } else {
+            version
+        }
+    }
 
     private fun timeStamp(): String? {
         val now = LocalDateTime.now()
@@ -93,6 +106,11 @@ class Generator {
             return
         }
 
+        // Check if parent folder is named features
+        if (folder.parentFile.name != "features") {
+            return
+        }
+
         // Get all files and subdirectories in the folder
         val files = folder.listFiles()
 
@@ -170,26 +188,34 @@ class Generator {
         val stepInitialFormatting =
             step.lowercase().dropWhile { it != ' ' }.trimStart().filterNot { it == '\'' }.filterNot { it == '-' }
                 .replace(' ', '_')
-        val regex = "\"([^\"]+)\"".toRegex()
+        val paramsRegex = "\"([^\"]+)\"".toRegex()
 
         // check for datatable in a step
+        val dataTableVariableNamesRow = mutableListOf<String>()
         val dataTableParameters = mutableListOf<String>()
         if (dataTable.isNotEmpty()) {
-            dataTable.forEach { row ->
+            dataTable.forEachIndexed { index, row ->
                 val transformedRow = transformDataTableRowToFunctionParameters(row)
-                dataTableParameters.add(transformedRow)
+                if (index == 0) {
+                    dataTableVariableNamesRow.add(transformedRow)
+                } else {
+                    dataTableParameters.add(transformedRow)
+                }
             }
         }
-        val dataTableSection = if (dataTableParameters.isNotEmpty()) "datatable: $dataTableParameters" else ""
+//        ["text", "hint", "enabled", "secure"],
+        val dataTableSection =
+            if (dataTableParameters.isNotEmpty()) "datatable: $dataTableVariableNamesRow, $dataTableParameters" else ""
 
         // step parameters
-        val extractedValues = regex.findAll(step).map { it.groupValues[1] }.toList()
+        val extractedValues = paramsRegex.findAll(step).map { it.groupValues[1] }.toList()
         val formattedStepParameters = extractedValues.joinToString(",") { "\"$it\"" }
         val parametersSection =
             if (formattedStepParameters.isNotEmpty()) "parameters: [$formattedStepParameters]" else ""
 
         // step function creation
-        val stepName = stepInitialFormatting.replace(regex, "").replace("_+".toRegex(), "_").dropLastWhile { it == '_' }
+        val stepName =
+            stepInitialFormatting.replace(paramsRegex, "").replace("_+".toRegex(), "_").dropLastWhile { it == '_' }
         val stepFunctionSignature = when {
             parametersSection.isNotEmpty() && dataTableSection.isNotEmpty() -> "try $stepName($parametersSection, $dataTableSection)"
             parametersSection.isNotEmpty() -> "try $stepName($parametersSection)"

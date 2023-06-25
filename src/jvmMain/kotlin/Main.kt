@@ -1,7 +1,9 @@
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -18,14 +20,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import data.Dictionary
-import data.FileHandler
-import data.Generator
-import data.JFileChooserWrapper
+import common.UserPrefs
+import data.*
+import kotlinx.coroutines.delay
 import theme.CucumberConverterColors
 import theme.CucumberConverterTheme
 import theme.CucumberConverterTypography
 import theme.Shapes
+import java.util.prefs.Preferences
 import javax.swing.JFileChooser
 
 
@@ -33,19 +35,43 @@ class Main() {
 
     private val fileChooserWrapper = JFileChooserWrapper()
     private val fileHandler = FileHandler(fileChooserWrapper)
+    private val userPrefs = Preferences.userNodeForPackage(Main::class.java)
 
     init {
         // only accept directories
         fileChooserWrapper.fileSelectionMode(JFileChooser.DIRECTORIES_ONLY)
+
+
     }
+
+    private fun getRememberedPaths(): Pair<String, String>? {
+        val scenarioPath = userPrefs.get(UserPrefs.scenariosPath, "")
+        val generatedFilesPath = userPrefs.get(UserPrefs.generatedFilesPath, "")
+
+        return if (scenarioPath.isEmpty() || generatedFilesPath.isEmpty()) null else Pair(
+            scenarioPath,
+            generatedFilesPath
+        )
+    }
+
 
     @Composable
     @Preview
     fun AppInterface() {
-        var scenarioPathInputState by remember { mutableStateOf("") }
-        var generatedFilesPathInputState by remember { mutableStateOf("") }
+        // remembering paths
+        val rememberedPaths = getRememberedPaths()
+        val rememberedScenarioPath = rememberedPaths?.first ?: ""
+        val rememberedGeneratedFilesPath = rememberedPaths?.second ?: ""
+
+        var scenarioPathInputState by remember { mutableStateOf(rememberedScenarioPath) }
+        var generatedFilesPathInputState by remember { mutableStateOf(rememberedGeneratedFilesPath) }
         var clearScenarioPathState by remember { mutableStateOf(false) }
         var clearGeneratedPathState by remember { mutableStateOf(false) }
+        var canRememberPaths by remember { mutableStateOf(false) }
+        var rememberPaths by remember { mutableStateOf(rememberedPaths != null) }
+        val generator = Generator()
+        var generatorSuccess by remember { mutableStateOf(false) }
+
 
         val errorConditions = setOf(
             Dictionary.chooseValidDirectory,
@@ -66,11 +92,26 @@ class Main() {
                 !(generatedFilesPathInputState.isEmpty() || generatedPathContainsError)
         }
 
+        LaunchedEffect(generatorSuccess) {
+            if (generatorSuccess) {
+                delay(1500)
+                generatorSuccess = false
+            }
+        }
+
         val generateButtonEnabled =
             scenarioPathInputState.isNotEmpty() && generatedFilesPathInputState.isNotEmpty() && !scenarioPathContainsError && !generatedPathContainsError
 
-        fun generatorError(errorMessage: String) {
+        canRememberPaths = generateButtonEnabled
+
+        fun scenarioError(errorMessage: String) {
             scenarioPathInputState = errorMessage
+        }
+
+        fun openFolderChooserDialog(clearPath: Boolean, invalidDirectory: String, openDialog: () -> String?): String {
+            return if (clearPath) "" else openDialog() ?: Dictionary.chooseValidDirectory.formatWithParam(
+                invalidDirectory
+            )
         }
 
         CucumberConverterTheme {
@@ -81,28 +122,36 @@ class Main() {
                         currentGeneratedPath = generatedFilesPathInputState.ifEmpty { Dictionary.chooseFolderToGenerateIn },
                         scenarioPathCrossFadeState = clearScenarioPathState,
                         generatedPathCrossFadeState = clearGeneratedPathState,
-                        buttonEnabled = generateButtonEnabled,
-                        onPathInputClick = {
-                            scenarioPathInputState = if (clearScenarioPathState) {
-                                ""
+                        generateButtonEnabled = generateButtonEnabled,
+                        generatorSuccess = generatorSuccess,
+                        canRememberPaths = canRememberPaths,
+                        rememberPathsCheckboxEnabled = rememberPaths,
+                        onRememberPathsCheckboxStateChanged = {
+                            rememberPaths = it
+
+                            if (rememberPaths) {
+                                userPrefs.put(UserPrefs.scenariosPath, scenarioPathInputState)
+                                userPrefs.put(UserPrefs.generatedFilesPath, generatedFilesPathInputState)
                             } else {
+                                userPrefs.remove(UserPrefs.scenariosPath)
+                                userPrefs.remove(UserPrefs.generatedFilesPath)
+                            }
+                        },
+                        onPathInputClick = {
+                            scenarioPathInputState = openFolderChooserDialog(clearScenarioPathState, "scenario") {
                                 // open file chooser dialog && catch returned directory value
                                 // or return error text
-                                fileHandler.openFileDialogAndValidateScenarioPath() ?: Dictionary.chooseValidDirectory
+                                fileHandler.openFileDialogAndValidateScenarioPath()
                             }
                         },
                         onGeneratedPathInputClick = {
-                            generatedFilesPathInputState = if (clearGeneratedPathState) {
-                                ""
-                            } else {
-                                // open file chooser dialog && catch returned directory value
-                                // or return error text
-                                fileHandler.openFileDialog() ?: Dictionary.chooseValidDirectory
-                            }
+                            generatedFilesPathInputState =
+                                openFolderChooserDialog(clearGeneratedPathState, "generated files") {
+                                    fileHandler.openFileDialog()
+                                }
                         }
                     ) {
-                        val generator = Generator()
-
+                        generatorSuccess = false
                         fileHandler.processScenarios(
                             scenariosPath = scenarioPathInputState,
                             onScenariosFound = { generator.clearOldTestFiles(generatedFilesPathInputState) },
@@ -111,11 +160,14 @@ class Main() {
 
                             },
                             onEmptyScenarios = {
-                                generatorError(Dictionary.noScenariosFound)
+                                scenarioError(Dictionary.noScenariosFound)
                             },
                             onScenarioReadingFailure = { scenarioName ->
-                                val errorMessage = String.format(Dictionary.scenarioReadingError, scenarioName)
-                                generatorError(errorMessage)
+                                val errorMessage = Dictionary.scenarioReadingError.formatWithParam(scenarioName)
+                                scenarioError(errorMessage)
+                            },
+                            onLastScenarioProcessed = {
+                                generatorSuccess = true
                             }
                         )
                     }
@@ -131,7 +183,11 @@ fun GeneratorInterface(
     currentGeneratedPath: String,
     scenarioPathCrossFadeState: Boolean,
     generatedPathCrossFadeState: Boolean,
-    buttonEnabled: Boolean,
+    generateButtonEnabled: Boolean,
+    generatorSuccess: Boolean,
+    canRememberPaths: Boolean,
+    rememberPathsCheckboxEnabled: Boolean,
+    onRememberPathsCheckboxStateChanged: (Boolean) -> Unit,
     onPathInputClick: () -> Unit,
     onGeneratedPathInputClick: () -> Unit,
     onGenerateClick: () -> Unit
@@ -147,7 +203,7 @@ fun GeneratorInterface(
             crossFadeTargetState = scenarioPathCrossFadeState,
             onClick = onPathInputClick
         )
-
+        Spacer(modifier = Modifier.height(4.dp).fillMaxWidth().background(color = CucumberConverterColors.Green500))
         // Generated files path
         PathInput(
             currentPath = currentGeneratedPath,
@@ -156,10 +212,39 @@ fun GeneratorInterface(
         )
     }
     Spacer(modifier = Modifier.height(24.dp))
-    PrimaryButton(
-        enabled = buttonEnabled,
-        onClick = onGenerateClick
-    )
+    AnimatedVisibility(canRememberPaths) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(
+                modifier = Modifier.height(24.dp),
+                checked = rememberPathsCheckboxEnabled,
+                onCheckedChange = onRememberPathsCheckboxStateChanged,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = CucumberConverterColors.Green500,
+                    uncheckedColor = CucumberConverterColors.Green500,
+                    checkmarkColor = CucumberConverterColors.White
+                )
+            )
+            Text(
+                "Remember generator paths",
+                style = CucumberConverterTypography.RobotoPlaceholderUiL.copy(color = CucumberConverterColors.Gray)
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(24.dp))
+    Row(horizontalArrangement = Arrangement.SpaceBetween) {
+        PrimaryButton(
+            enabled = generateButtonEnabled,
+            onClick = onGenerateClick
+        )
+        AnimatedVisibility(generatorSuccess) {
+            Image(
+                modifier = Modifier.padding(start = 32.dp).size(64.dp),
+                painter = painterResource("done.svg"),
+                contentDescription = Dictionary.loadingCd,
+                colorFilter = ColorFilter.tint(color = CucumberConverterColors.Green500)
+            )
+        }
+    }
 }
 
 @Composable
