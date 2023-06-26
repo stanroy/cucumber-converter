@@ -1,6 +1,7 @@
 package data
 
 import common.capitalizeIt
+import common.printIt
 import java.io.File
 import java.io.FileWriter
 import java.time.LocalDateTime
@@ -40,7 +41,7 @@ class Generator {
         // Create a map to store the scenarios and their steps with data tables
         val scenarioMap = mutableMapOf<String, MutableMap<String, MutableList<String>>>()
         var currentStep: String? = null
-
+        var stepCount = 1
         // Go over each line in the scenario file
         scenarioFileLines.forEach { line ->
             when {
@@ -72,7 +73,13 @@ class Generator {
                 else -> {
                     // Otherwise, it's a regular step line
                     currentStep = line
-                    // Create a new list to store the data tables of the current step
+                    // Check if the step key already exists
+                    if (scenarioMap.values.lastOrNull()?.containsKey(currentStep) == true) {
+                        stepCount++
+                        currentStep = "$currentStep cucumber-converter-$stepCount"
+                    } else {
+                        stepCount = 1
+                    }
                     scenarioMap.values.lastOrNull()?.set(currentStep!!, mutableListOf())
                 }
             }
@@ -141,7 +148,7 @@ class Generator {
                 appendLine()
                 appendLine("import XCTest")
                 appendLine()
-                appendLine("class ${scenarioFile.fileName.capitalizeIt()}: XCTestCase {")
+                appendLine("class ${scenarioFile.fileName.capitalizeIt()}: XCTestCase, Steps {")
                 appendLine("    let app = XCUIApplication()")
                 appendLine()
                 scenariosMap.forEach { (scenario, stepMap) ->
@@ -174,20 +181,24 @@ class Generator {
             appendLine("    }")
             appendLine()
         }
-
-        return scenarioFunctionBuilder.toString()
+        
+        return scenarioFunctionBuilder.removeDuplicateLines().toString()
     }
 
     private fun transformDataTableRowToFunctionParameters(inputString: String): String {
-        return inputString.split("|").map { it.trim() }.filter { it.isNotEmpty() }
+        return inputString.removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
             .joinToString(", ", transform = { "\"$it\"" })
     }
 
     private fun formatStepFunction(step: String, dataTable: List<String>): String {
         val stepFunctionBuilder = StringBuilder()
+        val duplicateStepRegex = "cucumber-converter-\\d+$".toRegex()
+
         val stepInitialFormatting =
-            step.lowercase().dropWhile { it != ' ' }.trimStart().filterNot { it == '\'' }.filterNot { it == '-' }
-                .replace(' ', '_')
+            step.lowercase().replace(duplicateStepRegex, "").trimEnd().dropWhile { it != ' ' }.trimStart()
+                .filterNot { it == '\'' }.filterNot { it == '-' }
+                .replace(' ', '_').removeSuffix("_")
+
         val paramsRegex = "\"([^\"]+)\"".toRegex()
 
         // check for datatable in a step
@@ -203,7 +214,7 @@ class Generator {
                 }
             }
         }
-//        ["text", "hint", "enabled", "secure"],
+
         val dataTableSection =
             if (dataTableParameters.isNotEmpty()) "datatable: $dataTableVariableNamesRow, $dataTableParameters" else ""
 
@@ -227,6 +238,12 @@ class Generator {
 
 
         return stepFunctionBuilder.toString()
+    }
+
+    fun StringBuilder.removeDuplicateLines(): StringBuilder {
+        val lines = this.toString().lines()
+        val uniqueLines = lines.distinct()
+        return StringBuilder(uniqueLines.joinToString(System.lineSeparator()))
     }
 
 }
