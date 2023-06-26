@@ -178,9 +178,10 @@ class Generator {
                 appendLine(formatStepFunction(step, dataTable))
             }
             appendLine("    }")
-            appendLine()
+            appendLine(" ")
         }
-        
+
+
         return scenarioFunctionBuilder.removeDuplicateLines().toString()
     }
 
@@ -215,7 +216,7 @@ class Generator {
         }
 
         val dataTableSection =
-            if (dataTableParameters.isNotEmpty()) "datatable: $dataTableVariableNamesRow, $dataTableParameters" else ""
+            if (dataTableParameters.isNotEmpty()) "datatable: [$dataTableVariableNamesRow, $dataTableParameters]" else ""
 
         // step parameters
         val extractedValues = paramsRegex.findAll(step).map { it.groupValues[1] }.toList()
@@ -239,10 +240,12 @@ class Generator {
         return stepFunctionBuilder.toString()
     }
 
-    fun StringBuilder.removeDuplicateLines(): StringBuilder {
+    private fun StringBuilder.removeDuplicateLines(): StringBuilder {
         val lines = this.toString().lines()
-        val uniqueLines = lines.distinct()
-        return StringBuilder(uniqueLines.joinToString(separator = "${System.lineSeparator()}${System.lineSeparator()}"))
+
+        val uniqueLines = lines.distinct().filter { it.isNotEmpty() }
+
+        return StringBuilder(uniqueLines.joinToString("${System.lineSeparator()}${System.lineSeparator()}"))
     }
 
 }
