@@ -1,7 +1,6 @@
 package data
 
 import common.capitalizeIt
-import common.printIt
 import java.io.File
 import java.io.FileWriter
 import java.time.LocalDateTime
@@ -243,7 +242,7 @@ class Generator {
     fun StringBuilder.removeDuplicateLines(): StringBuilder {
         val lines = this.toString().lines()
         val uniqueLines = lines.distinct()
-        return StringBuilder(uniqueLines.joinToString(System.lineSeparator()))
+        return StringBuilder(uniqueLines.joinToString(separator = "${System.lineSeparator()}${System.lineSeparator()}"))
     }
 
 }
